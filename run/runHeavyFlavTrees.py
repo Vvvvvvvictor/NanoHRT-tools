@@ -16,6 +16,8 @@ default_config = {'nano_version': 'V15', # 'V15', 'V12', 'V9'
                   'custom_tagger_list': None,
                   'use_existing_jet_ids': False,
                   'require_sv_cut': True, 'run_gen_hadron_nsubs': False, # for qcd channel
+                  # MUON systematics
+                  'applySmearing': True, 'musr_extra_br': False,   
                   # JME systematics
                   'jec': False, 'jes': None, 'jes_source': '', 'jes_uncertainty_file_prefix': '',
                   'jer': 'nominal', 'jmr': None, 'met_unclustered': None, 'smearMET': False, 'applyHEMUnc': False,
@@ -51,6 +53,8 @@ elif default_config['nano_version'] == 'V15':
                 ' Sum$(Muon_pt>20 && abs(Muon_eta)<2.4 && abs(Muon_dxy)<0.05 && abs(Muon_dz)<0.2 && Muon_looseId && Muon_miniPFRelIso_all<0.4) >= 2) && nFatJet>0',
         'inclusive': 'Sum$((Jet_pt>25 && abs(Jet_eta)<2.4) * Jet_pt)>300 && Sum$(FatJet_subJetIdx1>=0 && FatJet_subJetIdx2>=0 && FatJet_msoftdrop>10)>0',
         'higgs': 'nFatJet>0',
+        'zbb': 'Sum$(FatJet_pt>400 && abs(FatJet_eta)<2.4)>0 && Sum$(FatJet_pt>150 && abs(FatJet_eta)<2.4)>1',
+        'zmm': 'Sum$(Muon_pt>50 && abs(Muon_eta)<2.4 && Muon_highPtId)>0 && Sum$(Muon_pt>25 && abs(Muon_eta)<2.4 && Muon_highPtId)>1',
         'mutagged': 'Sum$((Jet_pt>25 && abs(Jet_eta)<2.4) * Jet_pt)>200 && nFatJet>0',
         'simple-matching': 'nFatJet>0',
     }
@@ -197,7 +201,7 @@ def main():
     parser.add_argument('--channel',
                         type=str,
                         required=True,
-                        help='Channel: photon, qcd, muon, diboson, signal, inclusive, or comma separated list e.g., `qcd,photon`'
+                        help='Channel: photon, qcd, zbb, zmm, muon, diboson, signal, inclusive, or comma separated list e.g., `qcd,photon`'
                         )
 
     parser.add_argument('--run-syst',

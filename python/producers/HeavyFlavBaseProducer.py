@@ -11,6 +11,7 @@ from ..helpers.utils import deltaR, closest, polarP4, sumP4, get_subjets, correc
 from ..helpers.xgbHelper import XGBEnsemble
 from ..helpers.nnHelper import convert_prob, ensemble
 from ..helpers.jetmetCorrector import JetMETCorrector, JetVetoHelper, rndSeed
+from ..helpers.muonCorrector import MuonCorrector
 
 import logging
 logger = logging.getLogger('nano')
@@ -47,6 +48,7 @@ class HeavyFlavBaseProducer(Module, object):
         self._channel = channel  # 'qcd', 'photon', 'inclusive', 'muon'
         self.year = str(kwargs['year'])
         self.jetType = kwargs.get('jetType', 'ak8').lower()
+        self._muonSysts = {'applySmearing': True, 'musr_extra_br': False}
         self._jmeSysts = {'jec': False, 'jes': None, 'jes_source': '', 'jes_uncertainty_file_prefix': '',
                           'jer': None, 'jmr': None, 'met_unclustered': None, 'smearMET': True, 'applyHEMUnc': False,
                           'jesr_extra_br': True}
@@ -60,8 +62,11 @@ class HeavyFlavBaseProducer(Module, object):
         for k in kwargs:
             if k in self._jmeSysts:
                 self._jmeSysts[k] = kwargs[k]
+            elif k in self._muonSysts:
+                self._muonSysts[k] = kwargs[k]
             else:
                 self._opts[k] = kwargs[k]
+        self._needsMuonCorr = any([self._muonSysts['applySmearing'], self._muonSysts['musr_extra_br']])
         self._needsJMECorr = any([self._jmeSysts['jec'], self._jmeSysts['jes'],
                                   self._jmeSysts['jer'], self._jmeSysts['jmr'],
                                   self._jmeSysts['met_unclustered'], self._jmeSysts['applyHEMUnc']])
@@ -71,6 +76,7 @@ class HeavyFlavBaseProducer(Module, object):
 
         logger.info('Running %s channel for %s jets with JME systematics %s, other options %s',
                     self._channel, self.jetType, str(self._jmeSysts), str(self._opts))
+        logger.info('Running with muon corrections: %s', str(self._muonSysts))
 
         if self.jetType == 'ak8':
             self._jetConeSize = 0.8
@@ -86,6 +92,9 @@ class HeavyFlavBaseProducer(Module, object):
             self._sj_gen_name = 'GenSubJetAK15'
         else:
             raise RuntimeError('Jet type %s is not recognized!' % self.jetType)
+
+        if self._needsMuonCorr:
+            self.muonCorr = MuonCorrector(year=self.year, **self._muonSysts)
 
         if self._needsJMECorr:
             ak4JetType = "AK4PFchs" if self._opts['nano_version'] == 'V9' else "AK4PFPuppi"
@@ -182,6 +191,8 @@ class HeavyFlavBaseProducer(Module, object):
                 ]
 
     def beginJob(self):
+        if self._needsMuonCorr:
+            self.muonCorr.beginJob()
         if self._needsJMECorr:
             self.jetmetCorr.beginJob()
             self.fatjetCorr.beginJob()
@@ -192,6 +203,8 @@ class HeavyFlavBaseProducer(Module, object):
             self.xgb = XGBEnsemble(self._sfbdt_files, self._sfbdt_vars)
 
     def endJob(self):
+        if self._needsMuonCorr:
+            self.muonCorr.endJob()
         if self._needsJMECorr:
             self.jetmetCorr.endJob()
             self.fatjetCorr.endJob()
@@ -242,8 +255,23 @@ class HeavyFlavBaseProducer(Module, object):
         if self._applyJetVetoMap:
             self.out.branch("jetVetoFlag", "O")
 
+        if self._channel in ['zmm']:
+            for idx in [0, 1]:
+                prefix = "muon%d_" % idx
+                self.out.branch(prefix + "pt", "F")
+                self.out.branch(prefix + "eta", "F")
+                self.out.branch(prefix + "phi", "F")
+                self.out.branch(prefix + "mass", "F")
+                self.out.branch(prefix + "miniIso", "F")
+
+                if self._muonSysts['musr_extra_br'] and self.isMC:
+                    self.out.branch(prefix + "pt_scaleUp", "F")
+                    self.out.branch(prefix + "pt_scaleDn", "F")
+                    self.out.branch(prefix + "pt_smearUp", "F")
+                    self.out.branch(prefix + "pt_smearDn", "F")
+
         # Large-R jets
-        for idx in ([1, 2] if self._channel in ['qcd', 'mutagged'] else [1]):
+        for idx in ([1, 2] if self._channel in ['qcd', 'zbb', 'mutagged'] else [1]):
             prefix = 'fj_%d_' % idx
 
             # fatjet kinematics
@@ -404,6 +432,13 @@ class HeavyFlavBaseProducer(Module, object):
                 event.looseLeptons.append(mu)
 
         event.looseLeptons.sort(key=lambda x: x.pt, reverse=True)
+
+    def correctMuons(self, event):
+        # correct muon momentum
+        if not self._needsMuonCorr:
+            return
+        event._allMuons = Collection(event, "Muon")
+        self.muonCorr.correctMuons(event._allMuons, event)
 
     def correctJetsAndMET(self, event):
         # correct Jets and MET
@@ -754,7 +789,7 @@ class HeavyFlavBaseProducer(Module, object):
         return filler
 
     def fillFatJetInfo(self, event, fatjets):
-        for idx in ([1, 2] if self._channel in ['qcd', 'mutagged'] else [1]):
+        for idx in ([1, 2] if self._channel in ['qcd', 'zbb', 'mutagged'] else [1]):
             prefix = 'fj_%d_' % idx
 
             if len(fatjets) <= idx - 1 or not fatjets[idx - 1].is_qualified:

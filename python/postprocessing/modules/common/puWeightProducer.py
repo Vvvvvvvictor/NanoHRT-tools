@@ -20,6 +20,7 @@ class puWeightProducer(Module):
      ):
         self.targeth = self.loadHisto(targetfile, targethist)
         if doSysVar:
+            print(f"Loading file: {targetfile} for histograms {targethist}_plus and {targethist}_minus")
             self.targeth_plus = self.loadHisto(targetfile,
                                                targethist + "_plus")
             self.targeth_minus = self.loadHisto(targetfile,
@@ -203,3 +204,15 @@ puWeight_UL2018 = lambda: puWeightProducer(pufile_mcUL2018,
                                            doSysVar=True)
 puAutoWeight_UL2018 = lambda: puWeightProducer(
     "auto", pufile_dataUL2018, "pu_mc", "pileup", verbose=False)
+
+# 2024
+pufile_dataUL2024 = "%s/src/PhysicsTools/NanoHRTTools/python/postprocessing/data/pileup/PileupHistogram-UL2024-100bins_withVar.root" % os.environ['CMSSW_BASE']
+pufile_mcUL2024 = "%s/src/PhysicsTools/NanoHRTTools/python/postprocessing/data/pileup/mcPileupUL2024.root" % os.environ['CMSSW_BASE']
+puWeight_UL2024 = lambda: puWeightProducer(pufile_mcUL2024,
+                                           pufile_dataUL2024,
+                                           "pu_mc",
+                                           "pileup",
+                                           verbose=False,
+                                           doSysVar=True)
+puAutoWeight_UL2024 = lambda: puWeightProducer(
+    "auto", pufile_dataUL2024, "pu_mc", "pileup", verbose=False)

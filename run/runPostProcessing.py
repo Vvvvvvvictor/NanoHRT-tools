@@ -322,6 +322,7 @@ def create_metadata(args):
             dataset0 = None
             for dataset in samp_to_datasets[samp]:
                 if dataset0 is None:
+                    print(dataset)
                     dataset0 = dataset.split('/')[1]
                 else:
                     if dataset0 != dataset.split('/')[1]:

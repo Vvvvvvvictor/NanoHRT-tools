@@ -11,6 +11,7 @@ keep PV_npvs
 # triggers
 keep HLT_Iso*Mu24
 keep HLT_IsoMu27
+keep HLT_Mu50
 keep HLT_Ele27_WPTight_Gsf
 keep HLT_Ele32_WPTight_Gsf
 keep HLT_Ele32_WPTight_Gsf_L1DoubleEG
@@ -18,6 +19,7 @@ keep HLT_Ele35_WPTight_Gsf
 keep HLT_PFMET*_PFMHT*_IDTight*
 keep HLT_BTagMu_*Jet300_Mu5*
 keep HLT_AK8PFJet*_SoftDropMass*
+keep HLT_AK8PFJet*00
 keepmatch HLT_PFHT[0-9]+
 # genweight
 keep genWeight
